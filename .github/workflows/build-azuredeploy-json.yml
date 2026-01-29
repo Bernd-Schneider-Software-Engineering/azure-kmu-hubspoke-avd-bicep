@@ -1,0 +1,40 @@
+name: Build azuredeploy.json from Bicep
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "**/*.bicep"
+      - ".github/workflows/build-azuredeploy-json.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build ARM template (azuredeploy.json)
+        uses: azure/CLI@v2
+        with:
+          # Absichtlich ohne Login: wir bauen nur.
+          inlineScript: |
+            az version
+            az bicep version || az bicep install
+            az bicep build --file main.bicep --outfile azuredeploy.json
+            test -f azuredeploy.json
+
+      - name: Commit & push azuredeploy.json
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add azuredeploy.json
+          git commit -m "chore: build azuredeploy.json"
+          git push
